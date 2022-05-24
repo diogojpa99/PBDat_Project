@@ -18,7 +18,7 @@ keys = features.keys()
 #That is each column of matrix B is an data point, an b
 #So we have 10482 data points [frames in this case]
 B = features['features']
-"print(type(features))"
+#print(type(features))
 print("Features shape:", B.shape)
 
 
