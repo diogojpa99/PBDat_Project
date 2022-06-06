@@ -4,21 +4,26 @@ from numpy import linalg
 
 
 #Load features file
-features = scipy.io.loadmat("girosmallveryslow2.mp4_features.mat")
-"print(type(features))"
+# For windows:
+features = scipy.io.loadmat(r'C:\Users\diogo\Desktop\IST\PBDat\EurosportAll\girosmallveryslow2.mp4_features.mat')
+print(type(features))
+# For Linux:
+#features = scipy.io.loadmat(r'C:\Users\diogo\Desktop\IST\PBDat\EurosportAll\girosmallveryslow2.mp4_features.mat')
 
 
-#Print key features of the .mat file
+
+
+#Print key features of the .mat file 
+#This .mat file is an dictionary, so we have to take the key we want
 keys = features.keys()
-"print(keys)"
+print(keys)
 
 
 #Put features in an numpy matrix. 
 #Each column of this matrix represents the embbeding of an frame [Acho]
-#That is each column of matrix B is an data point, an b
+#That is each column of matrix B is an ebbeding of an frame
 #So we have 10482 data points [frames in this case]
 B = features['features']
-"print(type(features))"
 print("Features shape:", B.shape)
 
 
