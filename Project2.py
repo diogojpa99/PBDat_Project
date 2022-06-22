@@ -1,17 +1,24 @@
+'''
+There is some code in comentary because it is about visualization, so it was depent on how the PC had the files saved. But do not worry 
+because we are going to show them on the video apresentation.
+
+Names: 
+Gonçalo Mesquita 94196
+Diogo Araújo 93906
+Paulo Cruz 93150
+
+'''
+
 import scipy.io as sio
 import pandas as pd
-from numpy.linalg import inv
 import numpy as np
 from numpy.linalg import svd
 from scipy import linalg
 import matplotlib.pyplot as plt
-from mat4py import loadmat
-from sklearn.metrics import mean_squared_error
 from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-from yellowbrick.cluster import KElbowVisualizer
-from sklearn.metrics.pairwise import euclidean_distances
 import cv2 
+
+
 
 
 #-------------------------FUNCTIONS-----------------
@@ -27,40 +34,48 @@ def get_matrix(file_path):
     Matrix = df.to_numpy(dtype = np.float64)
     return Matrix
 
-def get_rank_and_base (data, rank):
+def draw_poses(data ,img, missing_data=False):
 
-    # Get the base from svd. Why svd ?? Gives us the best possible base, with less error
+    PAIRS = [(0,1),(0,14),(0,15),(1,2),(1,5),(1,8),(1,11),(2,3),(3,4),(5,6),(6,7),(8,9),(9,10),(11,12),(12,13),(14,16),(15,17)]
+    x_pose = data[1:54:3, 0]
+    y_pose = data[2:54:3, 0]
+    colour = (255,255,0)
+    circle = 3
+    hand = 5
+    line_with = 2
+    img_width = img.shape[1]
+    img_height = img.shape[0]
+    validation = (x_pose + y_pose).astype(bool)
 
-    u, s, v = np.linalg.svd(data, full_matrices=False)
+    for kp1,kp2 in PAIRS:
+        if missing_data or validation[kp1] & validation[kp2]:
+            x1 = int(x_pose[kp1] * img_width )
+            y1 = int(y_pose[kp1] * img_height )
+            x2 = int(x_pose[kp2] * img_width )
+            y2 = int(y_pose[kp2] * img_height )
 
-    # Obseve which is the rank of the matrix. Single values give us the importance of each linear indepent collumn
-
-    fig = plt.figure()
-    plt.plot(s)     
-    fig.suptitle('Single Values', fontsize=16)
+            cv2.line(img, (x1,y1), (x2,y2), colour, line_with)
+            cv2.circle(img, (x1,y1), circle, colour, -1)
+            cv2.circle(img, (x2,y2), circle, colour, -1)
+            #plt.plot((x1,y1), (x2,y2))
+    #cv2.imshow('img', img)
+    plt.imshow(img)
     plt.show()
+    return
 
-    #Get the base. SVD ARRANJA A MELHOR BASE, COM MENOS ERRO
-
-    #print('By the graph which is the rank of these data set ? ')
-    #rank = int(input())
-    base =  u[:,:rank]
-    print(base)
-    
-    return  base
-
-def plot_images(outlier):
+def plot_outliers_features_images(outlier, rank, count):
     
     # reading images
     fig = plt.figure(figsize=(20, 10))
     
-    for i in range(100):
+    for i in range(200):
         Image = cv2.imread(f'/home/goncalo/Desktop/ist/PBDat_Project/frames/frame{outlier[i]}.jpg')
-    # Adds a subplot at the 1st position
-        fig.add_subplot(10,10, i+1)
+        fig.add_subplot(10,20, i+1)
         plt.imshow(Image)
+    plt.set_title(f'Outlier of features with rank: {rank}, have {count} outliers')
 
     return
+
 def get_outliers_features(data, rank, frames, err):
 
     # Get the base from svd. Why svd ?? Gives us the best possible base, with less error
@@ -69,12 +84,13 @@ def get_outliers_features(data, rank, frames, err):
 
     # Obseve which is the rank of the matrix. Single values give us the importance of each linear indepent collumn
 
-    fig = plt.figure()
-    plt.plot(s)     
-    fig.suptitle('Single Values', fontsize=16)
+    fig,axis=plt.subplots(1, 2, figsize = (13,9))
+    axis[0].plot(s) 
+    axis[1].plot(s[0:30])    
+    fig.suptitle('Single Values of features', fontsize=16)
     plt.show()
     
-    fig,axis=plt.subplots(3, 2, figsize = (15,5))
+    fig,axis=plt.subplots(3, 2, figsize = (13,9))
 
     for i in range (len(rank)):
 
@@ -84,7 +100,6 @@ def get_outliers_features(data, rank, frames, err):
         
     #Calculate orthogonal projection on to the Subspace and ortigonal projection on to the null subspace
 
-    #PI = np.matmul((np.matmul(base, inv(np.matmul(base.T ,base)))), base.T)
         Pi = np.matmul(base, base.T)
         PiN = np.identity(len(Pi))-Pi
 
@@ -97,13 +112,11 @@ def get_outliers_features(data, rank, frames, err):
 
     # Plot the normalization of the angles. Observe which are too far away from the null subspace
         
-        #fig = plt.figure()
         axis[i, 0].hist(angle_null, bins =300)
         axis[i, 0].set_title(f'Angle projection on to the null subspace: Rank {rank[i]}', fontsize=12)
         #fig = plt.figure()
         axis[i, 1].hist(angle, bins = 300)
         axis[i, 1].set_title(f'Angle projection on to the subspace: Rank {rank[i]}', fontsize=12)
-    
 
     # Consider outliers every collumn above err
 
@@ -114,13 +127,18 @@ def get_outliers_features(data, rank, frames, err):
                 #ind_outliers = i
                 outl.append(j)
                 count = count +1
-    # By seeing the outliers we acknowledge that rank 10 is better
 
+    # Watch the outliers,
+
+        #plot_outliers_features_images(outl, rank, count)
+        
+    #Taking into account the outliers
         if i == 1 : 
             outliers = outl
-        plot_images(outl)
-        #print('Number of outliers', count)
+    fig.suptitle('Features projections', fontsize=16)
     plt.show()
+        
+    
     # Delete the outliers form the features and their respective frames
 
     frames = np.delete(frames, outliers)
@@ -166,18 +184,6 @@ def get_outliers_skeletons(data , f_outliers):
         count = count + 2
     data_delete = np.delete(data_delete, index_probilities, 0)
 
-    #Delete collumns where more than 26 cordinates are zero
-
-    collumn_zeros = np.zeros((data_delete.shape[1]),int)
-    index_zeros =[]
-    for i in range(collumn_zeros.shape[0]):
-        collumn_zeros[i] = np.count_nonzero(data_delete[:,i]==0)
-        if collumn_zeros[i] >= 26 :
-            index_zeros.append(i)
-    data_delete = np.delete(data_delete, index_zeros, 1)
-    prob = np.delete(prob, index_zeros, 1)
-    frames_skeletons = np.delete(frames_skeletons, index_zeros)
-
     #Which row has got less zeros 
 
     row_zeros = np.zeros((data_delete.shape[0]),int)
@@ -186,6 +192,26 @@ def get_outliers_skeletons(data , f_outliers):
     fig = plt.figure()
     fig.suptitle('zeros in Skeletons rows', fontsize=16)
     plt.bar(np.arange(36) ,row_zeros) # Concluimos que as cordennadas na pose 1, que tambem é o centroide, é a posição com menos zeros. Daí utilizarmos a posição 1 para puxar os esqueletos para o seu frame 
+    plt.show()
+
+    #Delete collumns where more than 24 cordinates are zero
+
+    collumn_zeros = np.zeros((data_delete.shape[1]),int)
+    index_zeros =[]
+    for i in range(collumn_zeros.shape[0]):
+        collumn_zeros[i] = np.count_nonzero(data_delete[:,i]==0)
+        if collumn_zeros[i] >= 24 :
+            index_zeros.append(i)
+
+    data_delete = np.delete(data_delete, index_zeros, 1)
+    prob = np.delete(prob, index_zeros, 1)
+    frames_skeletons = np.delete(frames_skeletons, index_zeros)
+
+    #Which collumn has got less zeros 
+
+    fig = plt.figure()
+    fig.suptitle('Zeros in skeletons collumns', fontsize=16)
+    plt.bar(np.arange(20345) ,collumn_zeros)  
     plt.show()
 
     return data_delete, frames_skeletons, prob
@@ -213,15 +239,16 @@ def skeletons_centered(skeletons_clean, skeletons_prob, skeletons_frame):
                     skeletons_clean[i, j] = np.subtract(skeletons_clean[i, j],skeletons_clean[3,j])
                     if skeletons_clean[i, j]==0:
                         skeletons_clean[i,j] = 0.0001
-
+    
     skeletons_clean = np.delete(skeletons_clean,index_zero_1, 1)
     skeletons_frame = np.delete(skeletons_frame, index_zero_1)
     skeletons_clean = np.delete(skeletons_clean, 2 ,0 )
     skeletons_clean = np.delete(skeletons_clean, 2 ,0 )
     skeletons_prob = np.delete(skeletons_prob, 1, 0)
     skeletons_prob = np.delete(skeletons_prob, index_zero_1, 1  )
-
-    return skeletons_clean, skeletons_frame, skeletons_prob,
+    #pose_1 = np.zeros((2,skeletons_clean.shape[1]))
+    #pose_1[0,:], pose_1[1,:] = skeletons_clean[2,:] , skeletons_clean[3,:]
+    return skeletons_clean, skeletons_frame, skeletons_prob
 
 def complete_missing_data(data_clean, err, r): 
     
@@ -267,131 +294,84 @@ def complete_missing_data(data_clean, err, r):
 
 def joining_skeletons_features(ske_data, feat_data, ske_frames, feat_frames, prob):
     
-    #Joining the most probable skeleton to the correspondente features
-    data_shape_0 = ske_data.shape[1] + feat_data.shape[0]
-    data = np.empty([ske_data.shape[0], data_shape_0, feat_data.shape[1]])
-    zeros = np.zeros([ske_data.shape[1]])
-    for m in range(ske_data.shape[0]):
+    data_shape_0 = ske_data.shape[0] + feat_data.shape[0]
+    data = np.empty([data_shape_0, feat_data.shape[1]])
+    zeros = np.zeros([ske_data.shape[0]])
 
-        count=0
-        count1=0
-        for i in range(len(feat_frames)):
+    #Joining the most probable skeleton to the feature it belongs
+
+    count=0
+    count1=0
+    for i in range(len(feat_frames)):
         
-            count = np.count_nonzero(feat_frames[i] == ske_frames)
-            if count > 0 :
-                p=0
-                index = 0
-                for j in range (count):
-                    if p < np.sum(prob[:,count1+j], axis=0):
-                        p = np.sum(prob[:,count1+j], axis=0)
-                        index = count1+j 
+        count = np.count_nonzero(feat_frames[i] == ske_frames)
+        
+        if count > 0 :
+            p=0
+            index = 0
+            for j in range (count):
+                if p < np.sum(prob[:,count1+j], axis=0):
+                    p = np.sum(prob[:,count1+j], axis=0)
+                    index = count1+j 
             
-                data[m][:,i]=np.append(feat_data[:,i],ske_data[m][:,index], axis=0)
-            else:
-                data[m][:,i]=np.append(feat_data[:,i],zeros, axis=0)
+            data[:,i]=np.append(feat_data[:,i],ske_data[:,index], axis=0)
+        else:
+            data[:,i]=np.append(feat_data[:,i],zeros, axis=0)
 
-            count1 = count1+count
-  
+        count1 = count1+count
+
     return data
+
+def plot_clusters(data, kmeans, labels, max_ind, m, frames, min_ind):
+    
+    centroids = kmeans.cluster_centers_
+    u_labels = np.unique(labels)
+
+    for i in u_labels:
+        axis[m].scatter(data.T[labels == i , 0] , data.T[labels == i , 1] ,s=10, label = i)
+    axis[m].scatter(centroids[:,0] , centroids[:,1] , s = 20,marker='^', color= 'black')
+    axis[m].scatter(data.T[min_ind, 0], data.T[min_ind, 1] , s = 30,marker='x', color= 'black')
+    axis[m].scatter(data.T[max_ind, 0], data.T[max_ind, 1] , s = 30,marker='o', color= 'black')
+    axis[m].legend()
 
 def Kmeans_clustering(data, frames, n_clust, m):
 
+    
     # Reduce the dimension to 100
     u, s, v = np.linalg.svd(data, full_matrices=False)
     s_lowrank = s[:100]
     s_lowrank = np.diag(s_lowrank)
     vh_lowrank = v[0:100,:]
-    u_lowrank = u[:,:100]
     lowdim = np.matmul(s_lowrank , vh_lowrank)
-    
+
+
+
     #Calculate the clusters
 
     kmeans = KMeans( n_clusters=n_clust, random_state=0)
     labels = kmeans.fit_predict(lowdim.T)
+    clustering = list(zip(frames, labels))
     
-    #PLot clusters
-
-    centroids = kmeans.cluster_centers_
-    u_labels = np.unique(labels)
-    cluster = list(zip(frames, labels))
-    #print(cluster[0:500])
-    print('\n')
-    for i in u_labels:
-        axis[m].scatter(lowdim.T[labels == i , 0] , lowdim.T[labels == i , 1] ,s=10, label = i)
-    axis[m].scatter(centroids[:,0] , centroids[:,1] , s = 20,marker='^', color= 'black')
-    axis[m].legend()
-    axis[0].set_title('Kmeans Clustering for features')
-    axis[1].set_title('Kmeans Clustering for skeletons')
-    #axis[2].set_title('Kmeans Clustering for features with skeletons')
-
-    #Get the fardest and the nearest point from centroid 
+    #Get the fardest point from centroid 
 
     lowdim_dist = kmeans.transform(lowdim.T)**2
-    print(lowdim_dist.shape)
     max_indices = []
     for label in np.unique(kmeans.labels_):
         data_label_indices = np.where(labels==label)[0]
         max_label_idx = data_label_indices[np.argmax(lowdim_dist[labels==label].sum(axis=1))]
         max_indices.append(max_label_idx)
+    
+    #Get centroids indexes
 
     min_indices = []
-    for label in np.unique(kmeans.labels_):
-        X_label_indices = np.where(labels==label)[0]
-        max_label_idx = X_label_indices[np.argmin(lowdim_dist[labels==label].sum(axis=1))]
-        min_indices.append(max_label_idx)
-    
-    print(frames[max_indices[:]])
-    print(frames[min_indices[:]])
-    print(labels[max_indices[:]])
-    print(labels[min_indices[:]])  
+    for i in range(kmeans.cluster_centers_.shape[0]):
+        min_indices.append(np.argmin(np.linalg.norm(lowdim.T - kmeans.cluster_centers_[i], axis=1)))
 
-    axis[m].scatter(lowdim.T[max_indices, 0], lowdim.T[max_indices, 1] , s = 60,marker='o', color= 'black')
-    axis[m].scatter(lowdim.T[min_indices, 0], lowdim.T[min_indices, 1] , s = 60,marker='x', color= 'black')
-    return
+    #Plot Clustering
 
-def Kmeans_joining_clustering(data_all, frames):
+    plot_clusters(lowdim,  kmeans , labels, max_indices, m, frames, min_indices)
 
-    fig,axis=plt.subplots(1, 3, figsize = (15,5))
-    for m in range(data_all.shape[0]):
-    
-    # Reduce the dimension to 100
-        u, s, v = np.linalg.svd(data_all[m], full_matrices=False)
-        s_lowrank = s[:100]
-        s_lowrank = np.diag(s_lowrank)
-        vh_lowrank = v[0:100,:]
-        u_lowrank = u[:,:100]
-        lowdim = np.matmul(s_lowrank , vh_lowrank)
-        '''
-        fig = plt.figure()
-        plt.plot(s_lowrank)     
-        fig.suptitle('Single Values', fontsize=16)
-        plt.show()
-
-        
-        model = KMeans()
-        # k is range of number of clusters.
-        visualizer = KElbowVisualizer(model, k=(2,30), timings= True)
-        visualizer.fit(lowdim.T)      
-        visualizer.show() 
-        '''
-    #Calculate the clusters
-
-        kmeans = KMeans( n_clusters=7, random_state=0)
-        labels = kmeans.fit_predict(lowdim.T)
-        centroids = kmeans.cluster_centers_
-        u_labels = np.unique(labels)
-        cluster = list(zip(frames, labels))
-        print(cluster[0:500])
-        print('\n')
-        for i in u_labels:
-            axis[m].scatter(lowdim.T[labels == i , 0] , lowdim.T[labels == i , 1] ,s=10, label = i)
-        axis[m].scatter(centroids[:,0] , centroids[:,1] , s = 20,marker='^', color= 'k')
-        axis[m].legend()
-        axis[m].set_title('Kmeans Clustering with rank')
-    plt.show()
-
-    return
-
+    return clustering
 
 #--------------------------MAIN---------------------
 
@@ -404,6 +384,8 @@ file_path_skeletons_complete ='esqueletosveryslow_complete.mat'
 features  =  get_matrix(file_path_features)
 skeletons = get_matrix(file_path_skeletons)
 skeletons_complete = get_matrix(file_path_skeletons_complete)
+#img = cv2.imread('/home/goncalo/Desktop/ist/PBDat_Project/frames/frame0.jpg')
+#draw_poses(skeletons ,img, False)
 
 #---------------------Parameters-----------------------------------
 
@@ -412,6 +394,7 @@ features_rank = np.array((2,10,15))
 skeletons_rank = np.array([4, 8 , 12])
 erros_rank_features =  np.array([0.67, 0.58 , 0.55])
 erros_skeletons =  np.array([0.092, 0.050 , 0.047])
+n_clusters = np.array([5, 7, 11])
 
 #--------------------Get Base and watch rank-----------------------
 
@@ -420,51 +403,36 @@ skeletons_clean, skeletons_frames, skeletons_probabilities = get_outliers_skelet
 
 #-------------------Center Skeletons on Pose 1 -----------------------
 
-skeletons_cent,skeletons_frames,skeletons_probabilities = skeletons_centered(skeletons_clean, skeletons_probabilities , skeletons_frames)
+skeletons_cent,skeletons_frames,skeletons_probabilities= skeletons_centered(skeletons_clean, skeletons_probabilities , skeletons_frames)
 
 #----------------------Missing Data replaced--------------------------
 
-skeletons_fill = complete_missing_data(skeletons_cent, erros_skeletons, skeletons_rank)
+skeletons_fill = complete_missing_data(skeletons_cent, erros_skeletons, skeletons_rank) #We chose the one with rank 8 because when we did the plot of the skeletons in matlab it was the best. That is why we use skeletons_fill[1]
 
-#-----------------------KMeans Clustering Features----------------------
+#-----------------------KMeans Clustering Features and skeletons----------------------
 
 fig,axis=plt.subplots(1, 2, figsize = (15,5))
 Kmeans_clustering(features_clean, features_frames, 4, 0)
 Kmeans_clustering(skeletons_fill[1], features_frames, 4, 1)
+axis[0].set_title('Kmeans Clustering for features')
+axis[1].set_title('Kmeans Clustering for skeletons')
 plt.show()
-
-
-
 
 #---------------------------Joining Skeletons and Features--------------------
 
-all_data = joining_skeletons_features(skeletons_fill, features_clean, skeletons_frames, features_frames, skeletons_probabilities)
+all_data = joining_skeletons_features(skeletons_fill[1], features_clean, skeletons_frames, features_frames, skeletons_probabilities)
 
-#---------------------------How many Clusters (Elbow)------------------------
+#-----------------------KMeans Clustering ----------------------
 
-#n_clusters = number_clusters(all_data[0])
-
-#---------------------------KNN Clustering-----------------------
-
-#Kmeans_clustering(all_data, features_frames)
-
-#-----------------------KMeans Clustering Features----------------------
-'''
 fig,axis=plt.subplots(1, 3, figsize = (15,5))
-Kmeans_clustering(features_clean, features_frames, 4, 0)
-Kmeans_clustering(skeletons_fill[1], features_frames, 4, 1)
-Kmeans_clustering(all_data[1], features_frames, 7, 2)
+Kmeans_clustering(all_data, features_frames, 5, 0)
+Kmeans_clustering(all_data, features_frames, 7, 1)
+Kmeans_clustering(all_data, features_frames, 11, 2)
+axis[0].set_title('5 clusters')
+axis[1].set_title('7 clusters')
+axis[2].set_title('11 clusters')
+fig.suptitle('Kmeans for features with skeletons', fontsize=16)
 plt.show()
-'''
 
-
-'''
-print(skeletons_fill[1])
-skeletons_file = skeletons_fill[1]
-skeletons_frames.reshape([-1])
-#skeletons_frames.append(skeletons_file)
-skel=np.append(skeletons_frames, skeletons_file)
-print(skel.shape)
-skel = skel.reshape((35, 9134))
-
-sio.savemat('skelr8.mat', mdict={'skel': skel})'''
+#print(cluster)
+sio.savemat('Features_Outliers_rank10.mat', mdict={'features_outliers':features_outliers })
